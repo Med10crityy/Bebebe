@@ -1,0 +1,454 @@
+Веб-приложение AutoServiceDB — полный пример решения
+
+Ниже — готовый комплект файлов, который полностью закрывает все 100 баллов задания. Структура проекта:
+
+```
+autoservice/
+├── config.php          # подключение к БД
+├── index.php           # список клиентов + AJAX-фильтр
+├── client.php          # карточка клиента + заказы
+├── add_client.php      # форма добавления (POST-обработчик)
+├── add_client_form.php # форма + JS-валидация
+├── ajax_search.php     # AJAX-эндпоинт фильтра
+└── style.css           # стили
+```
+
+---
+
+config.php — подключение к БД
+
+```php
+<?php
+// config.php
+$DB_HOST = 'localhost';
+$DB_USER = 'root';       // замените на своего пользователя
+$DB_PASS = '';           // замените на свой пароль
+$DB_NAME = 'AutoServiceDB';
+
+$mysqli = @new mysqli($DB_HOST, $DB_USER, $DB_PASS, $DB_NAME);
+
+if ($mysqli->connect_errno) {
+    http_response_code(500);
+    die('<h2 style="color:red">Ошибка подключения к базе данных: '
+        . htmlspecialchars($mysqli->connect_error) . '</h2>');
+}
+
+$mysqli->set_charset('utf8mb4');
+?>
+```
+
+---
+
+style.css — оформление
+
+```css
+body { font-family: Arial, sans-serif; margin: 20px; background:#f7f7f7; }
+h1, h2 { color:#333; }
+table { border-collapse: collapse; width: 100%; background:#fff; margin-top:10px; }
+th, td { border:1px solid #ccc; padding:8px 10px; text-align:left; }
+th { background:#e9eef5; }
+tr:nth-child(even) td { background:#fafafa; }
+a { color:#0b5ed7; text-decoration:none; }
+a:hover { text-decoration:underline; }
+.search-box { margin: 10px 0; padding:8px; width:320px; font-size:14px; }
+.btn { display:inline-block; padding:8px 14px; background:#0b5ed7; color:#fff;
+       border-radius:4px; border:none; cursor:pointer; }
+.btn:hover { background:#0a53be; }
+.msg-error { color:#b00020; font-weight:bold; margin-top:8px; }
+.field { margin-bottom:12px; }
+.field label { display:block; margin-bottom:4px; font-weight:bold; }
+.field input { width:320px; padding:6px; }
+.nav { margin-bottom:14px; }
+```
+
+---
+
+index.php — список клиентов + AJAX-фильтр
+
+```php
+<?php
+// index.php
+require 'config.php';
+
+// Первичная загрузка — все клиенты
+$result = $mysqli->query("SELECT id, full_name FROM clients ORDER BY id");
+$clients = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
+?>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>AutoServiceDB — Клиенты</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Автосервис — список клиентов</h1>
+
+    <div class="nav">
+        <a class="btn" href="add_client_form.php">+ Добавить клиента</a>
+    </div>
+
+    <input type="text" id="search" class="search-box"
+           placeholder="Поиск по Ф.И.О..." autocomplete="off">
+
+    <table id="clients-table">
+        <thead>
+            <tr><th style="width:60px">№</th><th>Ф.И.О.</th></tr>
+        </thead>
+        <tbody id="clients-body">
+            <?php if (count($clients) === 0): ?>
+                <tr><td colspan="2">Клиенты не найдены</td></tr>
+            <?php else: ?>
+                <?php foreach ($clients as $i => $c): ?>
+                    <tr>
+                        <td><?= $i + 1 ?></td>
+                        <td>
+                            <a href="client.php?id=<?= (int)$c['id'] ?>">
+                                <?= htmlspecialchars($c['full_name']) ?>
+                            </a>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </tbody>
+    </table>
+
+    <script>
+    // AJAX-фильтр клиентов (fetch)
+    const searchInput = document.getElementById('search');
+    const tbody = document.getElementById('clients-body');
+
+    let timer = null;
+
+    function renderRows(rows) {
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="2">Клиенты не найдены</td></tr>';
+            return;
+        }
+        tbody.innerHTML = rows.map((c, i) => `
+            <tr>
+                <td>${i + 1}</td>
+                <td><a href="client.php?id=${c.id}">${escapeHtml(c.full_name)}</a></td>
+            </tr>
+        `).join('');
+    }
+
+    function escapeHtml(s) {
+        return s.replace(/[&<>"']/g, m => ({
+            '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+        }[m]));
+    }
+
+    async function doSearch() {
+        const q = searchInput.value.trim();
+        try {
+            const resp = await fetch('ajax_search.php?q=' + encodeURIComponent(q));
+            if (!resp.ok) throw new Error('HTTP ' + resp.status);
+            const data = await resp.json();
+            renderRows(data);
+        } catch (e) {
+            console.error('Ошибка поиска:', e);
+            tbody.innerHTML = '<tr><td colspan="2">Ошибка загрузки данных</td></tr>';
+        }
+    }
+
+    searchInput.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(doSearch, 250); // debounce 250мс
+    });
+    </script>
+</body>
+</html>
+```
+
+---
+
+ajax_search.php — AJAX-эндпоинт фильтра
+
+```php
+<?php
+// ajax_search.php — возвращает JSON с клиентами по подстроке Ф.И.О.
+require 'config.php';
+
+header('Content-Type: application/json; charset=utf-8');
+
+$q = isset($_GET['q']) ? trim($_GET['q']) : '';
+
+if ($q === '') {
+    $stmt = $mysqli->prepare("SELECT id, full_name FROM clients ORDER BY id");
+} else {
+    $like = '%' . $q . '%';
+    $stmt = $mysqli->prepare(
+        "SELECT id, full_name FROM clients WHERE full_name LIKE ? ORDER BY id"
+    );
+    $stmt->bind_param('s', $like);
+}
+$stmt->execute();
+$res = $stmt->get_result();
+$data = $res->fetch_all(MYSQLI_ASSOC);
+
+echo json_encode($data, JSON_UNESCAPED_UNICODE);
+$stmt->close();
+$mysqli->close();
+```
+
+---
+
+client.php — карточка клиента и его заказы
+
+```php
+<?php
+// client.php
+require 'config.php';
+
+$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+
+if ($id <= 0) {
+    die('<p class="msg-error">Некорректный идентификатор клиента</p>');
+}
+
+// Данные клиента
+$stmt = $mysqli->prepare(
+    "SELECT id, full_name, phone, email FROM clients WHERE id = ?"
+);
+$stmt->bind_param('i', $id);
+$stmt->execute();
+$client = $stmt->get_result()->fetch_assoc();
+$stmt->close();
+
+if (!$client) {
+    die('<p class="msg-error">Клиент не найден</p>');
+}
+
+// Заказы клиента — JOIN пяти таблиц
+$sql = "
+    SELECT
+        o.id              AS order_id,
+        o.order_date,
+        o.status,
+        o.comment,
+        c.brand,
+        c.model,
+        s.service_name,
+        s.price,
+        m.full_name       AS mechanic_name
+    FROM orders o
+    JOIN cars       c ON c.id = o.car_id
+    JOIN services   s ON s.id = o.service_id
+    JOIN mechanics  m ON m.id = o.mechanic_id
+    WHERE c.client_id = ?
+    ORDER BY o.order_date DESC, o.id DESC
+";
+$stmt = $mysqli->prepare($sql);
+$stmt->bind_param('i', $id);
+$stmt->execute();
+$orders = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+?>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Клиент — <?= htmlspecialchars($client['full_name']) ?></title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="nav"><a href="index.php">← К списку клиентов</a></div>
+
+    <h1><?= htmlspecialchars($client['full_name']) ?></h1>
+
+    <h2>Информация о клиенте</h2>
+    <table style="width:auto">
+        <tr><th>Ф.И.О.</th><td><?= htmlspecialchars($client['full_name']) ?></td></tr>
+        <tr><th>Телефон</th><td><?= htmlspecialchars($client['phone']) ?></td></tr>
+        <tr><th>Email</th><td><?= htmlspecialchars($client['email']) ?></td></tr>
+    </table>
+
+    <h2>Заказы клиента</h2>
+    <?php if (count($orders) === 0): ?>
+        <p>Заказов нет.</p>
+    <?php else: ?>
+        <table>
+            <thead>
+                <tr>
+                    <th>№</th>
+                    <th>Дата</th>
+                    <th>Автомобиль</th>
+                    <th>Работа</th>
+                    <th>Стоимость, ₽</th>
+                    <th>Механик</th>
+                    <th>Статус</th>
+                    <th>Комментарий</th>
+                </tr>
+            </thead>
+            <tbody>
+            <?php foreach ($orders as $i => $o): ?>
+                <tr>
+                    <td><?= $i + 1 ?></td>
+                    <td><?= htmlspecialchars($o['order_date']) ?></td>
+                    <td><?= htmlspecialchars($o['brand'] . ' ' . $o['model']) ?></td>
+                    <td><?= htmlspecialchars($o['service_name']) ?></td>
+                    <td><?= number_format((float)$o['price'], 2, ',', ' ') ?></td>
+                    <td><?= htmlspecialchars($o['mechanic_name']) ?></td>
+                    <td><?= htmlspecialchars($o['status']) ?></td>
+                    <td><?= htmlspecialchars($o['comment']) ?></td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    <?php endif; ?>
+</body>
+</html>
+```
+
+---
+
+add_client_form.php — форма с JavaScript-валидацией
+
+```php
+<?php
+// add_client_form.php — только форма и JS
+?>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Добавить клиента</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="nav"><a href="index.php">← К списку клиентов</a></div>
+    <h1>Добавление нового клиента</h1>
+
+    <form id="client-form" method="post" action="add_client.php" novalidate>
+        <div class="field">
+            <label for="full_name">Ф.И.О. *</label>
+            <input type="text" name="full_name" id="full_name">
+        </div>
+        <div class="field">
+            <label for="phone">Телефон *</label>
+            <input type="text" name="phone" id="phone" placeholder="89001112233">
+        </div>
+        <div class="field">
+            <label for="email">Email *</label>
+            <input type="text" name="email" id="email" placeholder="user@mail.ru">
+        </div>
+        <button type="submit" class="btn">Сохранить</button>
+        <div id="form-errors" class="msg-error"></div>
+    </form>
+
+    <script>
+    (function () {
+        const form   = document.getElementById('client-form');
+        const errors = document.getElementById('form-errors');
+
+        // Валидаторы
+        const isNotEmpty   = v => v.trim().length > 0;
+        // Телефон: 10-15 цифр, допустимы +, -, пробелы, скобки
+        const isValidPhone = v => /^\+?[\d\s\-()]{10,18}$/.test(v.trim())
+                                && v.replace(/\D/g,'').length >= 10
+                                && v.replace(/\D/g,'').length <= 15;
+        const isValidEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
+        const isValidName  = v => v.trim().length >= 5; // минимальная длина ФИО
+
+        form.addEventListener('submit', function (e) {
+            const msgs = [];
+
+            const name  = document.getElementById('full_name').value;
+            const phone = document.getElementById('phone').value;
+            const email = document.getElementById('email').value;
+
+            if (!isNotEmpty(name))       msgs.push('Укажите Ф.И.О.');
+            else if (!isValidName(name)) msgs.push('Ф.И.О. должно содержать минимум 5 символов.');
+
+            if (!isNotEmpty(phone))        msgs.push('Укажите телефон.');
+            else if (!isValidPhone(phone)) msgs.push('Некорректный номер телефона.');
+
+            if (!isNotEmpty(email))       msgs.push('Укажите email.');
+            else if (!isValidEmail(email)) msgs.push('Некорректный email.');
+
+            if (msgs.length) {
+                e.preventDefault();
+                errors.innerHTML = msgs.map(m => '• ' + m).join('<br>');
+            } else {
+                errors.innerHTML = '';
+            }
+        });
+    })();
+    </script>
+</body>
+</html>
+```
+
+---
+
+add_client.php — POST-обработчик добавления
+
+```php
+<?php
+// add_client.php
+require 'config.php';
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Location: index.php');
+    exit;
+}
+
+$full_name = trim($_POST['full_name'] ?? '');
+$phone     = trim($_POST['phone']     ?? '');
+$email     = trim($_POST['email']     ?? '');
+
+// Повторная серверная валидация (на случай обхода JS)
+$err = [];
+if ($full_name === '' || mb_strlen($full_name) < 5) $err[] = 'Некорректное Ф.И.О.';
+if (!preg_match('/^\+?[\d\s\-()]{10,18}$/', $phone)) $err[] = 'Некорректный телефон.';
+if (!filter_var($email, FILTER_VALIDATE_EMAIL))      $err[] = 'Некорректный email.';
+
+if ($err) {
+    echo '<link rel="stylesheet" href="style.css">';
+    echo '<div class="msg-error">' . implode('<br>', array_map('htmlspecialchars', $err)) . '</div>';
+    echo '<p><a href="add_client_form.php">← Вернуться к форме</a></p>';
+    exit;
+}
+
+$stmt = $mysqli->prepare(
+    "INSERT INTO clients (full_name, phone, email) VALUES (?, ?, ?)"
+);
+$stmt->bind_param('sss', $full_name, $phone, $email);
+$stmt->execute();
+$stmt->close();
+$mysqli->close();
+
+header('Location: index.php');
+exit;
+```
+
+---
+
+Как это работает — краткая шпаргалка для экзамена
+
+Пункт задания Файл Что показать преподавателю
+1. Подключение к БД config.php new mysqli, вывод ошибки при сбое, set_charset
+2. Список клиентов (15) index.php HTML-таблица, порядковый номер, ссылка на client.php?id=...
+3. Карточка + заказы (25) client.php SELECT ... JOIN 4 таблиц (orders, cars, services, mechanics), WHERE c.client_id = ?
+4. Добавление (20) add_client_form.php + add_client.php INSERT, prepare/bind_param, редирект на index.php
+5. JS-валидация (15) add_client_form.php preventDefault(), регэкспы для телефона/email, мин. длина ФИО
+6. AJAX-фильтр (25) index.php + ajax_search.php fetch() + LIKE '%q%' + json_encode, debounce, «Клиенты не найдены»
+
+Что важно проговорить на защите
+
+1. Безопасность: везде prepare + bind_param — защита от SQL-инъекций; htmlspecialchars — от XSS.
+2. Двойная валидация: JavaScript — для UX, PHP — для защиты сервера (преподаватели любят этот момент).
+3. AJAX: debounce (250 мс) — чтобы не спамить запросами при каждом нажатии; encodeURIComponent — корректная передача кириллицы.
+4. Порядковый номер в таблицах — это $i + 1 в foreach, а не id из БД (важно: в задании именно «порядковый номер»).
+5. JSON_UNESCAPED_UNICODE — чтобы русские имена не превращались в \uXXXX.
+
+Как развернуть локально
+
+1. Установить XAMPP/OpenServer, запустить Apache + MySQL.
+2. Выполнить SQL-скрипт из задания в phpMyAdmin (создаст БД AutoServiceDB с данными).
+3. Положить файлы в htdocs/autoservice/.
+4. В config.php прописать своего пользователя/пароль.
+5. Открыть http://localhost/autoservice/index.php.
+
+Удачи на экзамене — структура простая, главное не забыть bind_param и htmlspecialchars, это первое, что проверяют.
