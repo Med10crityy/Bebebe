@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Сравнительный анализ программ для восстановления и обслуживания HDD</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f7fa;
+            color: #2c3e50;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 30px 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        h1 {
+            text-align: center;
+            color: #1a252f;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 15px;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #2980b9;
+            margin-top: 40px;
+            border-left: 5px solid #3498db;
+            padding-left: 15px;
+        }
+        h3 {
+            color: #34495e;
+            margin-top: 25px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            font-size: 0.9em;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        thead tr {
+            background-color: #3498db;
+            color: #ffffff;
+            text-align: left;
+        }
+        th, td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e0e0e0;
+            vertical-align: top;
+        }
+        tbody tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        tbody tr:hover {
+            background-color: #e8f4fd;
+        }
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: bold;
+            color: #fff;
+        }
+        .badge-free { background-color: #27ae60; }
+        .badge-paid { background-color: #e67e22; }
+        .badge-pro { background-color: #c0392b; }
+        .chart-container {
+            position: relative;
+            height: 350px;
+            width: 100%;
+            margin: 30px 0;
+            background: #fafafa;
+            border-radius: 8px;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+        .note {
+            background: #fff3cd;
+            border-left: 5px solid #ffc107;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+            font-size: 0.95em;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            font-size: 0.85em;
+            color: #7f8c8d;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+        @media (max-width: 768px) {
+            .container { padding: 15px; }
+            table { font-size: 0.8em; }
+            th, td { padding: 8px 10px; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Сравнительный анализ программ для восстановления и обслуживания жёстких дисков</h1>
+    
+    <p>В данном разделе представлены результаты анализа программных средств, отобранных для отчёта. Информация основана на открытых источниках: обсуждениях на профильных форумах (Chiphell, Ru-Board, LINUX DO), официальных страницах производителей и обзорах. Следует учитывать, что единого независимого бенчмарка, охватывающего все перечисленные программы, на момент составления отчёта не существует, поэтому данные носят оценочный характер.</p>
+
+    <div class="note">
+        <strong>Примечание:</strong> Все упоминания «эффективности» и «рисков» являются обобщением пользовательского опыта и маркетинговых материалов. Перед использованием любых функций записи на диске с данными необходима резервная копия.
+    </div>
+
+    <!-- ============ БЕСПЛАТНЫЕ ============ -->
+    <h2>🆓 Бесплатные программы</h2>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Программа</th>
+                <th>Тип</th>
+                <th>Ключевая функция восстановления</th>
+                <th>Оценка эффективности (по отзывам)</th>
+                <th>Риски / Ограничения</th>
+                <th>Удобство / Интерфейс</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Victoria</strong></td>
+                <td><span class="badge badge-free">Free</span></td>
+                <td>Remap, Erase, тест поверхности</td>
+                <td>Высокая для переназначения секторов; считается «рабочей лошадкой» на форумах [citation:1][citation:5]</td>
+                <td>Устаревший интерфейс; риск при неверном использовании</td>
+                <td>Среднее (DOS/Windows версии)</td>
+            </tr>
+            <tr>
+                <td><strong>HDAT2</strong></td>
+                <td><span class="badge badge-free">Free</span></td>
+                <td>Низкоуровневая регенерация, работа с HPA/DCO</td>
+                <td>Средняя; используется как альтернатива при отказе других [citation:11]</td>
+                <td>Только DOS; высокий порог входа</td>
+                <td>Низкое (консоль)</td>
+            </tr>
+            <tr>
+                <td><strong>MHDD</strong></td>
+                <td><span class="badge badge-free">Free</span></td>
+                <td>Erase, низкоуровневая диагностика</td>
+                <td>Средняя; «стандарт» для продавцов б/у дисков [citation:1]</td>
+                <td>Не видит современные интерфейсы (NVMe); DOS</td>
+                <td>Низкое (командная строка)</td>
+            </tr>
+            <tr>
+                <td><strong>DiskGenius Free</strong></td>
+                <td><span class="badge badge-free">Free</span></td>
+                <td>Тест и попытка ремонта секторов</td>
+                <td>Средняя; бесплатная версия ограничена [citation:9]</td>
+                <td>Часть функций скрыта в Pro; восстановление файлов ограничено</td>
+                <td>Высокое (графический интерфейс)</td>
+            </tr>
+            <tr>
+                <td><strong>Hard Disk Sentinel Free</strong></td>
+                <td><span class="badge badge-free">Free</span></td>
+                <td>Только мониторинг и тесты (без лечения)</td>
+                <td>Не применимо (нет лечения)</td>
+                <td>Бесплатная версия не исправляет ошибки</td>
+                <td>Высокое</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- ============ ПЛАТНЫЕ ============ -->
+    <h2>💰 Платные программы</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Программа</th>
+                <th>Тип</th>
+                <th>Ключевая функция восстановления</th>
+                <th>Оценка эффективности (по отзывам)</th>
+                <th>Риски / Ограничения</th>
+                <th>Удобство / Интерфейс</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>HDD Regenerator</strong></td>
+                <td><span class="badge badge-paid">Paid</span></td>
+                <td>«Магнитная инверсия» бэд-блоков</td>
+                <td>Неоднозначная: есть успешные случаи, но также сообщения о зависаниях и ухудшении состояния [citation:3][citation:11]</td>
+                <td>Очень медленно; может «убить» нестабильный диск [citation:3]</td>
+                <td>Среднее (DOS/Windows)</td>
+            </tr>
+            <tr>
+                <td><strong>Hard Disk Sentinel Pro</strong></td>
+                <td><span class="badge badge-paid">Paid</span></td>
+                <td>Quick Fix, Surface Reinitialise</td>
+                <td>Высокая для мониторинга и профилактики; лечение — вспомогательное [citation:4][citation:8]</td>
+                <td>Не «волшебная кнопка» для мёртвых дисков</td>
+                <td>Высокое</td>
+            </tr>
+            <tr>
+                <td><strong>SpinRite</strong></td>
+                <td><span class="badge badge-paid">Paid</span></td>
+                <td>Глубокий анализ и перезапись секторов</td>
+                <td>Средняя; считается «серьёзным», но медленным и дорогим [citation:3][citation:11]</td>
+                <td>Очень медленно; DOS; не для SSD</td>
+                <td>Низкое (DOS)</td>
+            </tr>
+            <tr>
+                <td><strong>DiskGenius Pro</strong></td>
+                <td><span class="badge badge-paid">Paid</span></td>
+                <td>Восстановление данных + ремонт секторов</td>
+                <td>Высокая как «комбайн»; ремонт — не главная специализация [citation:5]</td>
+                <td>Дорогая подписка; перегруженный интерфейс</td>
+                <td>Высокое</td>
+            </tr>
+            <tr>
+                <td><strong>MRT Ultra</strong></td>
+                <td><span class="badge badge-pro">Professional</span></td>
+                <td>Прошивки, P-List/G-List, обход бэдов</td>
+                <td>Высокая в профессиональной среде (класс PC-3000) [citation:6][citation:13]</td>
+                <td>Цена по запросу; требует обучения; не для рядового пользователя</td>
+                <td>Низкое/Среднее (сложный)</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- ============ ДИАГРАММА 1: СЛОЖНОСТЬ vs ЭФФЕКТИВНОСТЬ ============ -->
+    <h2>📊 Диаграмма: Сложность освоения и потенциал восстановления</h2>
+    <p>Диаграмма построена на основе обобщения пользовательского опыта и предназначена для иллюстрации позиционирования программ. Оценки субъективны (шкала 1–10).</p>
+    
+    <div class="chart-container">
+        <canvas id="scatterChart"></canvas>
+    </div>
+
+    <!-- ============ ДИАГРАММА 2: ЦЕНА ============ -->
+    <h2>💵 Сравнение стоимости (ориентировочно)</h2>
+    <p>Для бесплатных программ указана стоимость 0 ₽. Для MRT Ultra цена не публикуется официально; на вторичных площадках встречается диапазон, значительно превышающий бытовые утилиты [citation:2][citation:10].</p>
+
+    <div class="chart-container">
+        <canvas id="priceChart"></canvas>
+    </div>
+
+    <div class="footer">
+        <p>Источники: обсуждения Chiphell [citation:1], LINUX DO [citation:5], Ru-Board [citation:11], bsc-datarecovery.fr [citation:3], официальные страницы MRT Lab [citation:6], данные вторичного рынка [citation:2][citation:10].<br>
+        Отчёт подготовлен в учебных целях. Оценки эффективности не являются результатом лабораторных испытаний.</p>
+    </div>
+</div>
+
+<script>
+    // ============ SCATTER CHART: Сложность vs Эффективность ============
+    const scatterCtx = document.getElementById('scatterChart').getContext('2d');
+    new Chart(scatterCtx, {
+        type: 'scatter',
+        data: {
+            datasets: [
+                {
+                    label: 'Бесплатные',
+                    data: [
+                        { x: 6, y: 7, label: 'Victoria' },
+                        { x: 9, y: 6, label: 'HDAT2' },
+                        { x: 8, y: 6, label: 'MHDD' },
+                        { x: 4, y: 5, label: 'DiskGenius Free' },
+                        { x: 3, y: 2, label: 'HDS Free' }
+                    ],
+                    backgroundColor: '#27ae60',
+                    pointRadius: 8,
+                    pointHoverRadius: 12
+                },
+                {
+                    label: 'Платные',
+                    data: [
+                        { x: 5, y: 7, label: 'HDD Regenerator' },
+                        { x: 3, y: 6, label: 'HDS Pro' },
+                        { x: 7, y: 6, label: 'SpinRite' },
+                        { x: 5, y: 8, label: 'DiskGenius Pro' },
+                        { x: 10, y: 10, label: 'MRT Ultra' }
+                    ],
+                    backgroundColor: '#e67e22',
+                    pointRadius: 8,
+                    pointHoverRadius: 12
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const raw = context.raw;
+                            return raw.label + ': Сложность ' + raw.x + '/10, Потенциал ' + raw.y + '/10';
+                        }
+                    }
+                },
+                legend: { position: 'top' }
+            },
+            scales: {
+                x: {
+                    title: { display: true, text: 'Сложность освоения (1 = легко, 10 = очень сложно)' },
+                    min: 0, max: 11
+                },
+                y: {
+                    title: { display: true, text: 'Потенциал восстановления (1 = слабый, 10 = максимальный)' },
+                    min: 0, max: 11
+                }
+            }
+        }
+    });
+
+    // ============ BAR CHART: ЦЕНА ============
+    const priceCtx = document.getElementById('priceChart').getContext('2d');
+    new Chart(priceCtx, {
+        type: 'bar',
+        data: {
+            labels: [
+                'Victoria', 'HDAT2', 'MHDD', 'DiskGenius Free', 'HDS Free',
+                'HDD Regenerator', 'HDS Pro', 'SpinRite', 'DiskGenius Pro', 'MRT Ultra'
+            ],
+            datasets: [{
+                label: 'Стоимость (₽, ориентир)',
+                data: [0, 0, 0, 0, 0, 7420, 2885, 7340, 8237, 150000],
+                backgroundColor: [
+                    '#27ae60', '#27ae60', '#27ae60', '#27ae60', '#27ae60',
+                    '#e67e22', '#e67e22', '#e67e22', '#e67e22', '#c0392b'
+                ],
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            if (context.raw === 0) return 'Бесплатно';
+                            return context.raw.toLocaleString('ru-RU') + ' ₽';
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: { display: true, text: 'Стоимость (₽)' },
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString('ru-RU');
+                        }
+                    }
+                }
+            }
+        }
+    });
+</script>
+</body>
+</html>
