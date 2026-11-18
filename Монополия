@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мини-Монополия</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #game-container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        /* Игровое поле */
+        #board {
+            display: grid;
+            grid-template-columns: repeat(11, 60px);
+            grid-template-rows: repeat(11, 60px);
+            background-color: #cde6d0;
+            border: 2px solid #333;
+            position: relative;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+
+        #board-center {
+            grid-column: 2 / 11;
+            grid-row: 2 / 11;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 48px;
+            font-weight: bold;
+            color: #d32f2f;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+            transform: rotate(-15deg);
+            pointer-events: none;
+        }
+
+        .cell {
+            border: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 9px;
+            text-align: center;
+            padding: 2px;
+            position: relative;
+            background: #fff;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        .cell-color {
+            width: 100%;
+            height: 15px;
+            border-bottom: 1px solid #333;
+        }
+
+        .cell-name {
+            font-weight: bold;
+            margin: 2px 0;
+            line-height: 1.1;
+        }
+
+        .cell-price {
+            font-size: 8px;
+            color: #555;
+        }
+
+        .corner {
+            font-size: 11px;
+            font-weight: bold;
+            justify-content: center;
+            background: #e8f5e9;
+        }
+
+        /* Фишки игроков */
+        .token {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            position: absolute;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            z-index: 10;
+            transition: all 0.3s ease;
+        }
+
+        .token-1 { background-color: #e53935; bottom: 5px; left: 5px; }
+        .token-2 { background-color: #1e88e5; bottom: 5px; right: 5px; }
+
+        /* Панель управления и информации */
+        #sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 300px;
+        }
+
+        .panel {
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .player-info {
+            border-left: 5px solid #ccc;
+            padding-left: 10px;
+            transition: all 0.3s;
+        }
+
+        .player-info.active {
+            border-left-color: #ff9800;
+            background-color: #fff8e1;
+            transform: scale(1.02);
+        }
+
+        .player-info h3 { margin: 0 0 5px 0; }
+        .player-info p { margin: 2px 0; font-size: 14px; }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 5px;
+        }
+
+        #roll-btn { background-color: #4caf50; color: white; }
+        #roll-btn:hover { background-color: #45a049; }
+        #roll-btn:disabled { background-color: #a5d6a7; cursor: not-allowed; }
+
+        #buy-btn { background-color: #2196f3; color: white; display: none; }
+        #buy-btn:hover { background-color: #1976d2; }
+
+        #end-turn-btn { background-color: #ff9800; color: white; display: none; }
+        #end-turn-btn:hover { background-color: #f57c00; }
+
+        #dice-display {
+            font-size: 24px;
+            text-align: center;
+            margin: 10px 0;
+            font-weight: bold;
+            color: #333;
+        }
+
+        #log {
+            height: 150px;
+            overflow-y: auto;
+            font-size: 12px;
+            background: #f9f9f9;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        #log p { margin: 3px 0; border-bottom: 1px dashed #eee; padding-bottom: 3px; }
+
+        .owned-1 { background-color: rgba(229, 57, 53, 0.2) !important; }
+        .owned-2 { background-color: rgba(30, 136, 229, 0.2) !important; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="board">
+        <div id="board-center">МОНОПОЛИЯ</div>
+        <!-- Клетки генерируются через JS -->
+    </div>
+
+    <div id="sidebar">
+        <div class="panel">
+            <div id="player1-info" class="player-info active">
+                <h3 style="color: #e53935;">Игрок 1</h3>
+                <p>Деньги: $<span id="money1">1500</span></p>
+                <p>Собственность: <span id="prop1">0</span></p>
+            </div>
+            <div id="player2-info" class="player-info" style="margin-top: 10px;">
+                <h3 style="color: #1e88e5;">Игрок 2</h3>
+                <p>Деньги: $<span id="money2">1500</span></p>
+                <p>Собственность: <span id="prop2">0</span></p>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div id="dice-display">🎲 🎲</div>
+            <button id="roll-btn" onclick="rollDice()">Бросить кубики</button>
+            <button id="buy-btn" onclick="buyProperty()">Купить</button>
+            <button id="end-turn-btn" onclick="endTurn()">Завершить ход</button>
+        </div>
+
+        <div class="panel">
+            <h3 style="margin-top:0;">Журнал событий</h3>
+            <div id="log"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Данные поля (40 клеток)
+    const boardData = [
+        { name: "ВПЕРЁД", type: "corner", color: "#fff" },
+        { name: "Улица 1", type: "property", price: 60, rent: 2, color: "#8B4513" },
+        { name: "Казна", type: "chest", color: "#fff" },
+        { name: "Улица 2", type: "property", price: 60, rent: 4, color: "#8B4513" },
+        { name: "Налог", type: "tax", amount: 200, color: "#fff" },
+        { name: "Вокзал 1", type: "railroad", price: 200, rent: 25, color: "#000" },
+        { name: "Улица 3", type: "property", price: 100, rent: 6, color: "#87CEEB" },
+        { name: "Шанс", type: "chance", color: "#fff" },
+        { name: "Улица 4", type: "property", price: 100, rent: 6, color: "#87CEEB" },
+        { name: "Улица 5", type: "property", price: 120, rent: 8, color: "#87CEEB" },
+        { name: "ТЮРЬМА", type: "corner", color: "#fff" },
+        { name: "Улица 6", type: "property", price: 140, rent: 10, color: "#FF1493" },
+        { name: "Электр.", type: "utility", price: 150, rent: 20, color: "#00FFFF" },
+        { name: "Улица 7", type: "property", price: 140, rent: 10, color: "#FF1493" },
+        { name: "Улица 8", type: "property", price: 160, rent: 12, color: "#FF1493" },
+        { name: "Вокзал 2", type: "railroad", price: 200, rent: 25, color: "#000" },
+        { name: "Улица 9", type: "property", price: 180, rent: 14, color: "#FFA500" },
+        { name: "Казна", type: "chest", color: "#fff" },
+        { name: "Улица 10", type: "property", price: 180, rent: 14, color: "#FFA500" },
+        { name: "Улица 11", type: "property", price: 200, rent: 16, color: "#FFA500" },
+        { name: "ПАРКОВКА", type: "corner", color: "#fff" },
+        { name: "Улица 12", type: "property", price: 220, rent: 18, color: "#FF0000" },
+        { name: "Шанс", type: "chance", color: "#fff" },
+        { name: "Улица 13", type: "property", price: 220, rent: 18, color: "#FF0000" },
+        { name: "Улица 14", type: "property", price: 240, rent: 20, color: "#FF0000" },
+        { name: "Вокзал 3", type: "railroad", price: 200, rent: 25, color: "#000" },
+        { name: "Улица 15", type: "property", price: 260, rent: 22, color: "#FFFF00" },
+        { name: "Улица 16", type: "property", price: 260, rent: 22, color: "#FFFF00" },
+        { name: "Водоканал", type: "utility", price: 150, rent: 20, color: "#00FFFF" },
+        { name: "Улица 17", type: "property", price: 280, rent: 24, color: "#FFFF00" },
+        { name: "В ТЮРЬМУ", type: "corner", color: "#fff" },
+        { name: "Улица 18", type: "property", price: 300, rent: 26, color: "#008000" },
+        { name: "Улица 19", type: "property", price: 300, rent: 26, color: "#008000" },
+        { name: "Казна", type: "chest", color: "#fff" },
+        { name: "Улица 20", type: "property", price: 320, rent: 28, color: "#008000" },
+        { name: "Вокзал 4", type: "railroad", price: 200, rent: 25, color: "#000" },
+        { name: "Шанс", type: "chance", color: "#fff" },
+        { name: "Улица 21", type: "property", price: 350, rent: 35, color: "#00008B" },
+        { name: "Налог", type: "tax", amount: 100, color: "#fff" },
+        { name: "Улица 22", type: "property", price: 400, rent: 50, color: "#00008B" }
+    ];
+
+    // Состояние игры
+    let players = [
+        { id: 1, money: 1500, position: 0, properties: [], name: "Игрок 1" },
+        { id: 2, money: 1500, position: 0, properties: [], name: "Игрок 2" }
+    ];
+    let currentPlayerIndex = 0;
+    let hasRolled = false;
+    let canBuy = false;
+    let currentCellIndex = -1;
+
+    // Инициализация поля
+    function initBoard() {
+        const board = document.getElementById('board');
+        
+        boardData.forEach((cell, index) => {
+            const div = document.createElement('div');
+            div.className = 'cell';
+            div.id = `cell-${index}`;
+            
+            // Расчет координат для CSS Grid (11x11)
+            let row, col;
+            if (index <= 10) { row = 11; col = 11 - index; } // Низ (справа налево)
+            else if (index <= 20) { row = 10 - (index - 11); col = 1; } // Лево (снизу вверх)
+            else if (index <= 30) { row = 1; col = index - 20; } // Верх (слева направо)
+            else { row = index - 30; col = 11; } // Право (сверху вниз)
+
+            div.style.gridRow = row;
+            div.style.gridColumn = col;
+
+            if (cell.type === 'corner') {
+                div.classList.add('corner');
+            }
+
+            let html = '';
+            if (cell.color !== '#fff' && cell.type !== 'corner') {
+                html += `<div class="cell-color" style="background-color: ${cell.color};"></div>`;
+            }
+            
+            html += `<div class="cell-name">${cell.name}</div>`;
+            
+            if (cell.price) {
+                html += `<div class="cell-price">$${cell.price}</div>`;
+            } else if (cell.type === 'tax') {
+                html += `<div class="cell-price">-$${cell.amount}</div>`;
+            }
+
+            div.innerHTML = html;
+            board.appendChild(div);
+        });
+
+        // Добавляем фишки
+        const token1 = document.createElement('div');
+        token1.className = 'token token-1';
+        token1.id = 'token-1';
+        document.getElementById('cell-0').appendChild(token1);
+
+        const token2 = document.createElement('div');
+        token2.className = 'token token-2';
+        token2.id = 'token-2';
+        document.getElementById('cell-0').appendChild(token2);
+    }
+
+    function log(message) {
+        const logDiv = document.getElementById('log');
+        const p = document.createElement('p');
+        p.innerHTML = message;
+        logDiv.prepend(p);
+    }
+
+    function updateUI() {
+        document.getElementById('money1').innerText = players[0].money;
+        document.getElementById('money2').innerText = players[1].money;
+        document.getElementById('prop1').innerText = players[0].properties.length;
+        document.getElementById('prop2').innerText = players[1].properties.length;
+
+        document.getElementById('player1-info').classList.toggle('active', currentPlayerIndex === 0);
+        document.getElementById('player2-info').classList.toggle('active', currentPlayerIndex === 1);
+    }
+
+    function rollDice() {
+        if (hasRolled) return;
+
+        const dice1 = Math.floor(Math.random() * 6) + 1;
+        const dice2 = Math.floor(Math.random() * 6) + 1;
+        const total = dice1 + dice2;
+
+        document.getElementById('dice-display').innerText = `🎲 ${dice1} + ${dice2} = ${total}`;
+        
+        const player = players[currentPlayerIndex];
+        const oldPos = player.position;
+        player.position = (player.position + total) % 40;
+
+        // Проход через "Вперёд"
+        if (player.position < oldPos && total > 0) {
+            player.money += 200;
+            log(`${player.name} прошел через поле ВПЕРЁД и получил $200!`);
+        }
+
+        moveToken(player.id, player.position);
+        
+        log(`${player.name} бросил кубики: ${total}. Перемещение на клетку: <b>${boardData[player.position].name}</b>`);
+
+        hasRolled = true;
+        document.getElementById('roll-btn').disabled = true;
+        
+        handleLanding(player, player.position);
+        updateUI();
+    }
+
+    function moveToken(playerId, position) {
+        const token = document.getElementById(`token-${playerId}`);
+        const targetCell = document.getElementById(`cell-${position}`);
+        
+        // Небольшой сдвиг, чтобы фишки не перекрывались
+        if (playerId === 1) {
+            token.style.bottom = '5px';
+            token.style.left = '5px';
+            token.style.right = 'auto';
+        } else {
+            token.style.bottom = '5px';
+            token.style.right = '5px';
+            token.style.left = 'auto';
+        }
+        
+        targetCell.appendChild(token);
+    }
+
+    function handleLanding(player, pos) {
+        const cell = boardData[pos];
+        currentCellIndex = pos;
+        canBuy = false;
+
+        if (cell.type === 'property' || cell.type === 'railroad' || cell.type === 'utility') {
+            const ownerIndex = players.findIndex(p => p.properties.includes(pos));
+            
+            if (ownerIndex === -1) {
+                // Свободная собственность
+                if (player.money >= cell.price) {
+                    canBuy = true;
+                    document.getElementById('buy-btn').style.display = 'block';
+                    log(`Клетка свободна. Стоимость: $${cell.price}.`);
+                } else {
+                    log(`Недостаточно денег для покупки ($${cell.price}).`);
+                    document.getElementById('end-turn-btn').style.display = 'block';
+                }
+            } else if (ownerIndex !== currentPlayerIndex) {
+                // Чужая собственность
+                const rent = cell.rent;
+                player.money -= rent;
+                players[ownerIndex].money += rent;
+                log(`${player.name} платит $${rent} аренды игроку ${players[ownerIndex].name}.`);
+                document.getElementById('end-turn-btn').style.display = 'block';
+            } else {
+                log(`Своя собственность. Отдыхаем.`);
+                document.getElementById('end-turn-btn').style.display = 'block';
+            }
+        } else if (cell.type === 'tax') {
+            player.money -= cell.amount;
+            log(`${player.name} платит налог $${cell.amount}.`);
+            document.getElementById('end-turn-btn').style.display = 'block';
+        } else if (cell.type === 'corner') {
+            if (cell.name === "В ТЮРЬМУ") {
+                player.position = 10;
+                moveToken(player.id, 10);
+                log(`${player.name} отправляется в Тюрьму!`);
+            } else {
+                log(`${player.name} просто посетил угол.`);
+            }
+            document.getElementById('end-turn-btn').style.display = 'block';
+        } else {
+            log(`Ничего не произошло.`);
+            document.getElementById('end-turn-btn').style.display = 'block';
+        }
+
+        if (player.money < 0) {
+            log(`<b style="color:red;">${player.name} обанкротился! Игра окончена.</b>`);
+            document.getElementById('buy-btn').style.display = 'none';
+            document.getElementById('end-turn-btn').style.display = 'none';
+            document.getElementById('roll-btn').disabled = true;
+        }
+    }
+
+    function buyProperty() {
+        if (!canBuy) return;
+        
+        const player = players[currentPlayerIndex];
+        const cell = boardData[currentCellIndex];
+        
+        player.money -= cell.price;
+        player.properties.push(currentCellIndex);
+        
+        document.getElementById(`cell-${currentCellIndex}`).classList.add(`owned-${player.id}`);
+        
+        log(`${player.name} купил <b>${cell.name}</b> за $${cell.price}!`);
+        
+        canBuy = false;
+        document.getElementById('buy-btn').style.display = 'none';
+        document.getElementById('end-turn-btn').style.display = 'block';
+        updateUI();
+    }
+
+    function endTurn() {
+        hasRolled = false;
+        canBuy = false;
+        currentPlayerIndex = (currentPlayerIndex + 1) % 2;
+        
+        document.getElementById('roll-btn').disabled = false;
+        document.getElementById('buy-btn').style.display = 'none';
+        document.getElementById('end-turn-btn').style.display = 'none';
+        document.getElementById('dice-display').innerText = "🎲 🎲";
+        
+        log(`<b>--- Ход переходит к ${players[currentPlayerIndex].name} ---</b>`);
+        updateUI();
+    }
+
+    // Запуск
+    initBoard();
+    updateUI();
+    log("Добро пожаловать в Мини-Монополию! Игрок 1 начинает.");
+</script>
+
+</body>
+</html>
