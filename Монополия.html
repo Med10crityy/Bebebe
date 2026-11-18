@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Монополия</title>
+<style>
+:root{--bg:#dfe9d8;--fg:#1d2b1f;--card:#f6f3e6;--line:#2c4a35;--mut:#5d6e5f;--btn:#fff;--pri:#1f6b3a;--dng:#b3261e;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121c16;--fg:#e6eee4;--card:#1d2b22;--line:#7fa588;--mut:#9db3a1;--btn:#2a3c31;--pri:#3f9d60;--dng:#ff8a80;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121c16;--fg:#e6eee4;--card:#1d2b22;--line:#7fa588;--mut:#9db3a1;--btn:#2a3c31;--pri:#3f9d60;--dng:#ff8a80;color-scheme:dark}
+*{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.35 Georgia,"Times New Roman",serif}
+#app{max-width:760px;margin:0 auto;padding:8px}
+h1,h2,h3{margin:.3em 0;font-weight:700}
+.card{background:var(--card);border:2px solid var(--line);border-radius:6px;padding:14px;margin-top:10px}
+.mut{color:var(--mut);font-size:.9em}
+button,select{font:inherit;color:var(--fg);background:var(--btn);border:1.5px solid var(--line);border-radius:6px;padding:7px 12px;margin:3px}
+button.pri{background:var(--pri);color:#fff;border-color:var(--pri)}
+button.dng{color:var(--dng);border-color:var(--dng)}
+button:disabled{opacity:.4}
+#board{display:grid;grid-template:repeat(11,1fr)/repeat(11,1fr);aspect-ratio:1;border:2px solid var(--line);background:var(--card)}
+.sq{border:1px solid var(--line);position:relative;display:flex;flex-direction:column;overflow:hidden;text-align:center;line-height:1.08;font-size:clamp(5px,1.55vw,9.5px);min-width:0;min-height:0}
+.sq .bar{height:24%;flex:none;color:#fff;font-size:.8em;text-shadow:0 0 2px #000}
+.sq .n{padding:1px;flex:1;overflow-wrap:anywhere;hyphens:auto}
+.sq .pr{color:var(--mut)}
+.sq .ic{display:block;font-size:1.5em}
+.cn{font-weight:700}
+.mg{background:repeating-linear-gradient(45deg,transparent 0 4px,rgba(128,128,128,.4) 4px 8px)}
+.tk{position:absolute;left:0;right:0;bottom:1px;display:flex;justify-content:center;flex-wrap:wrap;gap:1px}
+.tk i{width:min(3.2vw,13px);height:min(3.2vw,13px);border-radius:50%;border:1.5px solid #111}
+#ctr{grid-area:2/2/11/11;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center;padding:4px}
+#ctr h2{font-size:clamp(14px,4vw,22px)}
+.dice{font-size:clamp(30px,10vw,60px);line-height:1;letter-spacing:.05em}
+.lst{min-height:2.7em;font-size:clamp(10px,2.8vw,14px)}
+.btns{display:flex;flex-wrap:wrap;justify-content:center}
+.pl{display:flex;align-items:center;gap:8px;padding:5px 8px;border:1.5px solid transparent;border-radius:6px}
+.pl.on{border-color:var(--line);background:var(--card);font-weight:700}
+.pl.dead{opacity:.4;text-decoration:line-through}
+.pl b{margin-left:auto}
+.pl i,.mr i{width:12px;height:12px;border-radius:50%;border:1.5px solid #111;flex:none}
+.mr{display:flex;align-items:center;gap:6px;padding:2px 0;border-bottom:1px solid var(--line)}
+.mr span{flex:1}.mr button{padding:3px 9px;margin:0}
+#mgp,#lg{margin-top:10px}
+#lg div{color:var(--mut);font-size:.9em}
+</style></head><body><div id="app">
+<div id="setup" class="card"><h1>🎩 Монополия</h1>
+<label>Игроков <select id="np"><option>2</option><option selected>3</option><option>4</option></select></label>
+<label>Из них ботов <select id="nb"><option>0</option><option selected>1</option><option>2</option><option>3</option></select></label><br>
+<button class="pri" onclick="start()">Начать игру</button>
+<p class="mut">Люди ходят по очереди на одном экране. Стартовый капитал 1500₽, проход через СТАРТ даёт 200₽. Монополия удваивает ренту, дома строятся равномерно, залог даёт половину цены.</p></div>
+<div id="game" hidden><div id="board"></div><div id="pls"></div><div id="mgp"></div><div id="lg"></div><button onclick="newg()">Новая игра</button></div>
+</div>
+<script>
+const $=s=>document.querySelector(s);
+const G=[["СТАРТ","go"],["Садовая","p",60,0,2],["Общ. казна","cc"],["Тверская","p",60,0,4],["Налог на доход","tax",200],["Курский вокзал","rr",200],["Арбат","p",100,1,6],["Шанс","ch"],["Остоженка","p",100,1,6],["Пятницкая","p",120,1,8],
+["ТЮРЬМА","jail"],["Покровка","p",140,2,10],["Электросети","ut",150],["Мясницкая","p",140,2,10],["Маросейка","p",160,2,12],["Казанский вокзал","rr",200],["Ордынка","p",180,3,14],["Общ. казна","cc"],["Полянка","p",180,3,14],["Якиманка","p",200,3,16],
+["ПАРКОВКА","park"],["Бол. Никитская","p",220,4,18],["Шанс","ch"],["Спиридоновка","p",220,4,18],["Мал. Бронная","p",240,4,20],["Ленингр. вокзал","rr",200],["Кутузовский","p",260,5,22],["Ленинский","p",260,5,22],["Водоканал","ut",150],["Мира","p",280,5,24],
+["В ТЮРЬМУ","gj"],["Рублёвка","p",300,6,26],["Новый Арбат","p",300,6,26],["Общ. казна","cc"],["Тверская-Ямская","p",320,6,28],["Ярослав. вокзал","rr",200],["Шанс","ch"],["Кремлёвская","p",350,7,35],["Сверхналог","tax",100],["Красная пл.","p",400,7,50]];
+const COL=['#8b5a2b','#8fd3f4','#e84a9a','#f28c28','#d62828','#f4d03f','#2e9e4f','#1d4ed8'],HC=[50,50,100,100,150,150,200,200];
+const M0=[1,5,15,45,80,125],MU={6:[1,5,15,35,42,49],7:[1,5,14,31,37,43]};
+const CH=[["Вперёд на СТАРТ",['to',0]],["Идите на Красную площадь",['to',39]],["Банк платит дивиденды: +50",['+',50]],["Штраф за скорость: −15",['-',15]],["Назад на 3 клетки",['back']],["Отправляйтесь в тюрьму",['jail']],["Заплатите каждому игроку по 50",['each',-50]],["Поезжайте на Курский вокзал",['to',5]]];
+const CC=[["Ошибка банка в вашу пользу: +200",['+',200]],["Оплата врача: −50",['-',50]],["Продажа акций: +50",['+',50]],["Наследство: +100",['+',100]],["Отправляйтесь в тюрьму",['jail']],["Налоговый возврат: +20",['+',20]],["Каждый игрок платит вам по 10",['each',10]],["Школьный сбор: −50",['-',50]]];
+let P=[],own=[],hs=[],mg=[],cur=0,ph='roll',dice=[0,0],dbl=0,again=false,log=[],over=false,tm=0,cred=null;
+const rnd=()=>1+Math.floor(Math.random()*6),say=t=>{log.unshift(t);log.length>30&&log.pop()};
+const grp=g=>G.map((s,i)=>s[1]==='p'&&s[3]===g?i:-1).filter(i=>i>=0);
+const hasSet=(p,g)=>grp(g).every(i=>own[i]===p),cnt=(p,t)=>G.reduce((a,s,i)=>a+(s[1]===t&&own[i]===p),0);
+function rent(i){const s=G[i],o=own[i];
+ if(s[1]==='p'){let r=s[4]*(MU[s[3]]||M0)[hs[i]];if(!hs[i]&&hasSet(o,s[3]))r*=2;return r}
+ if(s[1]==='rr')return 25*2**(cnt(o,'rr')-1);
+ return(cnt(o,'ut')>1?10:4)*(dice[0]+dice[1])}
+function pay(p,a,to){P[p].cash-=a;cred=to==null?null:to;if(to!=null)P[to].cash+=a}
+function moveBy(n){const p=P[cur],t=(p.pos+n)%40;if(t<p.pos){p.cash+=200;say(p.n+': проход СТАРТ +200')}p.pos=t}
+function goJail(){const p=P[cur];p.pos=10;p.j=0;again=false;dbl=0;say(p.n+' отправляется в тюрьму')}
+function roll(){if(ph!=='roll'||P[cur].cash<0)return;const p=P[cur];dice=[rnd(),rnd()];const d=dice[0]===dice[1],s=dice[0]+dice[1];again=false;say(`${p.n}: ${dice[0]}+${dice[1]}`);
+ if(p.j>=0){if(d){p.j=-1;say('Дубль — свобода!')}else{p.j++;if(p.j<3){say('Остаётся в тюрьме');return fin()}pay(cur,50);p.j=-1;say('Платит 50₽ и выходит')}moveBy(s);return land()}
+ if(d){dbl++;if(dbl>=3){say('Три дубля подряд!');goJail();return fin()}again=true}
+ moveBy(s);land()}
+function payJail(){const p=P[cur];if(ph==='roll'&&p.j>=0&&p.cash>=50){p.cash-=50;p.j=-1;say(p.n+' платит 50₽ и свободен');render()}}
+function land(){const p=P[cur],i=p.pos,s=G[i],t=s[1];
+ if(t==='p'||t==='rr'||t==='ut'){
+  if(own[i]<0){ph='buy';say(`${s[0]}: цена ${s[2]}₽`);return render()}
+  if(own[i]!==cur&&!mg[i]){const r=rent(i);say(`${p.n} платит ренту ${r}₽ — ${P[own[i]].n}`);pay(cur,r,own[i])}
+ }else if(t==='tax'){say(`${p.n} платит налог ${s[2]}₽`);pay(cur,s[2])}
+ else if(t==='gj'){goJail()}
+ else if(t==='ch'||t==='cc')return card(t);
+ fin()}
+function card(t){const p=P[cur],[tx,[a,v]]=(t==='ch'?CH:CC)[Math.floor(Math.random()*8)];say((t==='ch'?'Шанс: ':'Казна: ')+tx);
+ if(a==='+')p.cash+=v;else if(a==='-')p.cash-=v;
+ else if(a==='to'){if(v<p.pos){p.cash+=200;say('Проход СТАРТ +200')}p.pos=v;return land()}
+ else if(a==='back'){p.pos=(p.pos+37)%40;return land()}
+ else if(a==='jail')goJail();
+ else P.forEach((q,i)=>{if(i!==cur&&!q.dead){q.cash-=v;p.cash+=v}});
+ fin()}
+function buy(){const p=P[cur],i=p.pos,pr=G[i][2];if(ph!=='buy'||p.cash<pr)return;p.cash-=pr;own[i]=cur;say(`${p.n} покупает ${G[i][0]}`);fin()}
+function skip(){if(ph==='buy')fin()}
+function fin(){const p=P[cur];if(p.cash<0&&p.bot)botRaise();if(p.dead)return;ph=(again&&p.j<0)?'roll':'end';render()}
+function endTurn(){if(ph==='end'&&P[cur].cash>=0)next()}
+function next(){do cur=(cur+1)%P.length;while(P[cur].dead);dbl=0;again=false;ph='roll';render()}
+function mort(i){const s=G[i],p=P[own[i]];
+ if(mg[i]){const c=Math.ceil(s[2]*.55);if(p.cash>=c){p.cash-=c;mg[i]=0}}
+ else{if(s[1]==='p'&&grp(s[3]).some(j=>hs[j]>0))return;mg[i]=1;p.cash+=s[2]/2}}
+function build(i,d){const s=G[i],o=own[i];if(s[1]!=='p'||!hasSet(o,s[3]))return;const g=grp(s[3]);
+ if(d>0){if(g.some(j=>mg[j]||hs[j]<hs[i])||hs[i]>=5||P[o].cash<HC[s[3]])return;P[o].cash-=HC[s[3]];hs[i]++}
+ else{if(hs[i]<=0||g.some(j=>hs[j]>hs[i]))return;hs[i]--;P[o].cash+=HC[s[3]]/2}}
+function act(i,d){if(P[cur].bot)return;d?build(i,d):mort(i);render()}
+function bankrupt(){const p=P[cur];if(p.cash>=0)return;say(p.n+' банкрот!');
+ G.forEach((s,i)=>{if(own[i]===cur){own[i]=cred==null||P[cred].dead?-1:cred;hs[i]=0}});
+ if(cred!=null&&!P[cred].dead)P[cred].cash+=Math.max(0,p.cash+0);
+ p.dead=true;p.cash=0;
+ if(P.filter(q=>!q.dead).length<2){over=true;return render()}
+ next()}
+function botRaise(){const p=P[cur];
+ for(let k=0;k<6;k++)for(let i=0;i<40&&p.cash<0;i++)if(own[i]===cur)build(i,-1);
+ for(let i=39;i>=0&&p.cash<0;i--)if(own[i]===cur&&!mg[i])mort(i);
+ if(p.cash<0)bankrupt()}
+function bot(){if(over||!P[cur].bot)return;const p=P[cur];
+ if(ph==='roll'){if(p.j>=0&&p.cash>300)payJail();roll()}
+ else if(ph==='buy'){p.cash-G[p.pos][2]>=150?buy():skip()}
+ else{for(let i=0;i<40;i++){if(own[i]!==cur)continue;
+   if(G[i][1]==='p'&&p.cash>HC[G[i][3]]+300)build(i,1);
+   if(mg[i]&&p.cash>G[i][2]*.55+400)mort(i)}
+  next()}}
+const gp=i=>i<=10?[11,11-i]:i<=20?[21-i,1]:i<=30?[1,i-19]:[i-29,11];
+const D=n=>String.fromCodePoint(9855+n);
+function sq(i){const s=G[i],t=s[1],[r,c]=gp(i),o=own[i];
+ const bar=t==='p'?`<div class="bar" style="background:${COL[s[3]]}">${hs[i]>4?'★':'▪'.repeat(hs[i])}</div>`:'';
+ const ic={rr:'🚂',ut:'💡',ch:'❓',cc:'📦',tax:'💸',go:'➡️',jail:'🔒',park:'🅿️',gj:'👮'}[t];
+ const st=`grid-area:${r}/${c}`+(o>=0?`;box-shadow:inset 0 0 0 3px ${P[o].c}`:'');
+ return `<div class="sq${i%10?'':' cn'}${mg[i]?' mg':''}" style="${st}">${bar}<div class="n">${ic?`<span class="ic">${ic}</span>`:''}${s[0]}${s[2]?`<div class="pr">${s[2]}</div>`:''}</div><div class="tk">${P.map(q=>q.pos===i&&!q.dead?`<i style="background:${q.c}"></i>`:'').join('')}</div></div>`}
+function ctr(){const p=P[cur];
+ if(over){const w=P.find(q=>!q.dead);return `<div id="ctr"><h2>🏆 ${w.n} побеждает!</h2><button class="pri" onclick="newg()">Новая игра</button></div>`}
+ let b='';
+ if(p.bot)b='<span class="mut">Ходит бот…</span>';
+ else{const neg=p.cash<0,pr=G[p.pos][2];
+  if(ph==='roll')b=`<button class="pri" onclick="roll()" ${neg?'disabled':''}>Бросить кубики</button>`+(p.j>=0?`<button onclick="payJail()" ${p.cash<50?'disabled':''}>Выйти за 50₽</button>`:'');
+  else if(ph==='buy')b=`<button class="pri" onclick="buy()" ${p.cash<pr?'disabled':''}>Купить за ${pr}₽</button><button onclick="skip()">Отказаться</button>`;
+  else b=`<button class="pri" onclick="endTurn()" ${neg?'disabled':''}>Закончить ход</button>`;
+  if(neg)b+=`<button class="dng" onclick="bankrupt()">Банкрот</button><div class="mut">Долг: заложите имущество или сдайтесь</div>`}
+ return `<div id="ctr"><h2 style="color:${p.c};text-shadow:0 0 1px #000">${p.n}</h2><div class="dice">${dice[0]?D(dice[0])+D(dice[1]):'🎲'}</div><div class="lst">${log[0]||''}</div><div class="btns">${b}</div></div>`}
+function mgHTML(){if(over||P[cur].bot)return'';let r='';
+ G.forEach((s,i)=>{if(own[i]!==cur)return;const p=s[1]==='p',set=p&&hasSet(cur,s[3]);
+  r+=`<div class="mr"><i style="background:${p?COL[s[3]]:'#888'}"></i><span>${s[0]}${hs[i]?hs[i]>4?' · отель':' · домов: '+hs[i]:''}${mg[i]?' · в залоге':''}</span>${set?`<button title="Дом ${HC[s[3]]}₽" onclick="act(${i},1)">＋</button><button onclick="act(${i},-1)">−</button>`:''}<button onclick="act(${i},0)">${mg[i]?'Выкупить':'Залог'}</button></div>`});
+ return r?'<h3>Ваши владения</h3>'+r:''}
+function render(){
+ let h='';for(let i=0;i<40;i++)h+=sq(i);
+ $('#board').innerHTML=h+ctr();
+ $('#pls').innerHTML=P.map((q,i)=>`<div class="pl${i===cur?' on':''}${q.dead?' dead':''}"><i style="background:${q.c}"></i>${q.n}${q.j>=0?' 🔒':''}<b>${q.cash}₽</b></div>`).join('');
+ $('#mgp').innerHTML=mgHTML();
+ $('#lg').innerHTML=log.slice(0,8).map(l=>`<div>${l}</div>`).join('');
+ if(!over&&P[cur].bot&&!tm)tm=setTimeout(()=>{tm=0;bot()},650)}
+function start(){const n=+$('#np').value,b=Math.min(+$('#nb').value,n-1),C=['#e53935','#1e88e5','#fbc02d','#43a047'];
+ P=[];for(let i=0;i<n;i++){const bt=i>=n-b;P.push({n:bt?'Бот '+(i-(n-b)+1):'Игрок '+(i+1),c:C[i],pos:0,cash:1500,j:-1,bot:bt})}
+ own=Array(40).fill(-1);hs=Array(40).fill(0);mg=Array(40).fill(0);cur=0;ph='roll';dbl=0;again=false;over=false;log=[];dice=[0,0];
+ $('#setup').hidden=true;$('#game').hidden=false;say('Игра началась!');render()}
+function newg(){clearTimeout(tm);tm=0;P=[];$('#game').hidden=true;$('#setup').hidden=false}
+</script></body></html>
